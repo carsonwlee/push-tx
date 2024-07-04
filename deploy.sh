@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Enable debug logging
+export AWS_DEFAULT_REGION=us-east-1  # Replace with your AWS region
+export AWS_PROFILE=default  # Replace with your AWS profile if necessary
+export AWS_PAGER=""
+
+aws configure set default.s3.signature_version s3v4
+aws configure set default.output json
+
 # Load environment variables from .env file
 export $(grep -v '^#' .env | xargs)
 

@@ -189,6 +189,7 @@ Resources:
       Source:
         Type: GITHUB
         Location: !Sub "https://github.com/${GitHubRepoOwner}/${GitHubRepoName}.git"
+        ReportBuildStatus: true
         GitCloneDepth: 1
       Artifacts:
         Type: S3
