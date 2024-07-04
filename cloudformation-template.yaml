@@ -32,39 +32,65 @@ Resources:
         ErrorDocument: error.html
     DeletionPolicy: Delete
 
-  BucketPolicy:
+  S3BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
       Bucket: !Ref S3Bucket
       PolicyDocument:
+        Version: '2012-10-17'
         Statement:
           - Sid: PublicReadGetObject
             Effect: Allow
-            Principal: "*"
+            Principal: '*'
             Action: s3:GetObject
             Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-          - Sid: AllowCloudFrontServicePrincipal
-            Effect: Allow
+
+  ApplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
             Principal:
-              Service: cloudfront.amazonaws.com
-            Action: s3:GetObject
-            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-          - Sid: AllowLambdaFunctionAccess
-            Effect: Allow
-            Principal: "*"
-            Action:
-              - s3:GetObject
-              - s3:PutObject
-              - s3:DeleteObject
-            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-          - Sid: AllowCodePipelineAccess
-            Effect: Allow
-            Principal: "*"
-            Action:
-              - s3:GetObject
-              - s3:PutObject
-              - s3:DeleteObject
-            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
+              Service: 
+                - ec2.amazonaws.com
+                - s3.amazonaws.com
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      Policies:
+        - PolicyName: ApplicationS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource: 
+                  - !Sub "arn:aws:s3:::${S3Bucket}"
+                  - !Sub "arn:aws:s3:::${S3Bucket}/*"
+
+  CloudFormationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3FullAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource: '*'
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -77,33 +103,14 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: LambdaBasicExecution
+        - PolicyName: LambdaS3Access
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: "*"
-        - PolicyName: S3Access
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:ListBucket
-                  - s3:GetBucketLocation
-                  - s3:CreateBucket
-                  - s3:PutBucketPolicy
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                  - s3:PutObject
-                  - s3:DeleteObject
-                Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
+                  - s3:*
+                Resource: '*'
 
   CodePipelineServiceRole:
     Type: AWS::IAM::Role
@@ -116,30 +123,14 @@ Resources:
               Service: codepipeline.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: CodePipelinePolicy
+        - PolicyName: CodePipelineS3Access
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                  - s3:ListBucket
-                  - s3:GetBucketLocation
-                  - s3:CreateBucket
-                  - s3:PutBucketPolicy
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                  - s3:PutObject
-                  - s3:DeleteObject
-                Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-              - Effect: Allow
-                Action:
-                  - codebuild:*
-                  - codecommit:*
-                  - codedeploy:*
-                  - iam:PassRole
-                Resource: "*"
+                  - s3:*
+                Resource: '*'
 
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
@@ -152,36 +143,21 @@ Resources:
               Service: codebuild.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: CodeBuildPolicy
+        - PolicyName: CodeBuildS3Access
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                  - s3:ListBucket
-                  - s3:GetBucketLocation
-                  - s3:CreateBucket
-                  - s3:PutBucketPolicy
-                Resource: "*"
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                  - s3:PutObject
-                  - s3:DeleteObject
-                Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-              - Effect: Allow
-                Action:
-                  - codecommit:*
-                  - codedeploy:*
-                  - iam:PassRole
-                Resource: "*"
+                  - s3:*
+                Resource: '*'
 
   LambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub "${AWS::StackName}-lambda-function"
       Handler: index.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt ApplicationRole.Arn
       Runtime: nodejs14.x
       Code:
         S3Bucket: !Ref S3Bucket
@@ -284,9 +260,9 @@ Resources:
                 ProjectName: !Ref CodeBuildProject
 
 Outputs:
-  S3BucketName:
-    Description: "Name of the S3 bucket"
-    Value: !Ref S3Bucket
+  ApplicationRoleArn:
+    Description: "ARN of the Application IAM Role"
+    Value: !GetAtt ApplicationRole.Arn
 
   CloudFrontDistributionDomainName:
     Description: "Domain name of the CloudFront distribution"
