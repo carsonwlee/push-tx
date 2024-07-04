@@ -1,0 +1,20 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo Installing dependencies...
+      - npm install
+  build:
+    commands:
+      - echo Building the project...
+      - npm run build
+  post_build:
+    commands:
+      - echo Packaging the project...
+      - zip -r lambda-function.zip dist/
+      - aws s3 cp lambda-function.zip s3://$S3_BUCKET/
+artifacts:
+  files:
+    - '**/*'
+  base-directory: dist
