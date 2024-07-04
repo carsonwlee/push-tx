@@ -44,35 +44,14 @@ Resources:
             Principal: '*'
             Action: s3:GetObject
             Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-
-  ApplicationRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
+          - Sid: AllowPutObject
+            Effect: Allow
             Principal:
-              Service: 
-                - ec2.amazonaws.com
-                - s3.amazonaws.com
-                - lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
-      Policies:
-        - PolicyName: ApplicationS3Access
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:*
-                Resource: 
-                  - !Sub "arn:aws:s3:::${S3Bucket}"
-                  - !Sub "arn:aws:s3:::${S3Bucket}/*"
+              AWS: !GetAtt CodeBuildServiceRole.Arn
+            Action: s3:PutObject
+            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
 
-  CloudFormationRole:
+  CloudFormationExecutionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -82,28 +61,8 @@ Resources:
             Principal:
               Service: cloudformation.amazonaws.com
             Action: sts:AssumeRole
-      Policies:
-        - PolicyName: S3FullAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:*
-                Resource: '*'
-
-  CloudFormationExecutionRole:
-  Type: AWS::IAM::Role
-  Properties:
-    AssumeRolePolicyDocument:
-      Version: '2012-10-17'
-      Statement:
-        - Effect: Allow
-          Principal:
-            Service: cloudformation.amazonaws.com
-          Action: sts:AssumeRole
-    ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/AdministratorAccess
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -170,7 +129,7 @@ Resources:
     Properties:
       FunctionName: !Sub "${AWS::StackName}-lambda-function"
       Handler: index.handler
-      Role: !GetAtt ApplicationRole.Arn
+      Role: !GetAtt LambdaExecutionRole.Arn
       Runtime: nodejs14.x
       Code:
         S3Bucket: !Ref S3Bucket
@@ -273,10 +232,9 @@ Resources:
                 ProjectName: !Ref CodeBuildProject
 
 Outputs:
-  ApplicationRoleArn:
-    Description: "ARN of the Application IAM Role"
-    Value: !GetAtt ApplicationRole.Arn
-
+  S3BucketName:
+    Description: "Name of the S3 bucket"
+    Value: !Ref S3Bucket
   CloudFrontDistributionDomainName:
     Description: "Domain name of the CloudFront distribution"
     Value: !GetAtt CloudFrontDistribution.DomainName
