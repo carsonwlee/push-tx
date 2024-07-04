@@ -151,4 +151,4 @@ if [[ -z "$DISTRIBUTION_DOMAIN" ]]; then
 fi
 
 # Print the CloudFront Distribution Domain Name
-log "CloudFront Distribution
+log "CloudFront Distribution Domain Name: $DISTRIBUTION_DOMAIN"

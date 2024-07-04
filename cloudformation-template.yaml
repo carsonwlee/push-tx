@@ -94,7 +94,10 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:ListBucket
-                Resource: !Sub "arn:aws:s3:::${S3Bucket}"
+                  - s3:GetBucketLocation
+                  - s3:CreateBucket
+                  - s3:PutBucketPolicy
+                Resource: "*"
               - Effect: Allow
                 Action:
                   - s3:GetObject
@@ -120,6 +123,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:ListBucket
+                  - s3:GetBucketLocation
                   - s3:CreateBucket
                   - s3:PutBucketPolicy
                 Resource: "*"
@@ -155,6 +159,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:ListBucket
+                  - s3:GetBucketLocation
                   - s3:CreateBucket
                   - s3:PutBucketPolicy
                 Resource: "*"
