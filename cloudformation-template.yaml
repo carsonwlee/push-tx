@@ -50,6 +50,12 @@ Resources:
               AWS: !GetAtt CodeBuildServiceRole.Arn
             Action: s3:PutObject
             Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
+          - Sid: AllowPutObjectLambda
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt LambdaExecutionRole.Arn
+            Action: s3:PutObject
+            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
 
   CloudFormationExecutionRole:
     Type: AWS::IAM::Role
@@ -81,8 +87,8 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - s3:*
-                Resource: '*'
+                  - s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
 
   CodePipelineServiceRole:
     Type: AWS::IAM::Role
@@ -101,8 +107,8 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - s3:*
-                Resource: '*'
+                  - s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
 
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
@@ -121,8 +127,8 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - s3:*
-                Resource: '*'
+                  - s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
 
   LambdaFunction:
     Type: AWS::Lambda::Function
