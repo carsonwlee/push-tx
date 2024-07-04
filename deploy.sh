@@ -111,7 +111,7 @@ if [[ "$STACK_STATUS" == *"does not exist"* ]]; then
                  ParameterKey=GitHubBranch,ParameterValue=$GITHUB_BRANCH \
                  ParameterKey=GitHubToken,ParameterValue=$GITHUB_TOKEN \
                  ParameterKey=CertificateArn,ParameterValue=$CERTIFICATE_ARN \
-    --capabilities CAPABILITY_IAM
+    --capabilities CAPABILITY_NAMED_IAM
 
   if [[ $? -ne 0 ]]; then
     error "Failed to create CloudFormation stack."
@@ -131,7 +131,7 @@ else
                  ParameterKey=GitHubBranch,ParameterValue=$GITHUB_BRANCH \
                  ParameterKey=GitHubToken,ParameterValue=$GITHUB_TOKEN \
                  ParameterKey=CertificateArn,ParameterValue=$CERTIFICATE_ARN \
-    --capabilities CAPABILITY_IAM
+    --capabilities CAPABILITY_NAMED_IAM
 
   if [[ $? -ne 0 ]]; then
     error "Failed to update CloudFormation stack."
