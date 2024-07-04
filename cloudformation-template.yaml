@@ -26,10 +26,11 @@ Resources:
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "${AWS::StackName}-${AWS::AccountId}-static-site-unique-${AWS::Region}"
+      BucketName: !Sub "${AWS::StackName}-${AWS::AccountId}-static-site"
       WebsiteConfiguration:
         IndexDocument: index.html
         ErrorDocument: error.html
+    DeletionPolicy: Delete
 
   BucketPolicy:
     Type: AWS::S3::BucketPolicy

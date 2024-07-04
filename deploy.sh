@@ -97,11 +97,6 @@ fi
 # Get AWS region
 AWS_REGION=$(aws configure get region)
 
-# Create S3 bucket
-log "Creating S3 bucket..."
-BUCKET_NAME="push-tx-static-site-$(openssl rand -hex 4)"
-aws s3 mb s3://$BUCKET_NAME --region $AWS_REGION
-
 # Check if CloudFormation stack exists
 STACK_STATUS=$(aws cloudformation describe-stacks --stack-name push-tx --query "Stacks[0].StackStatus" --output text 2>&1)
 
@@ -156,4 +151,4 @@ if [[ -z "$DISTRIBUTION_DOMAIN" ]]; then
 fi
 
 # Print the CloudFront Distribution Domain Name
-log "CloudFront Distribution Domain Name: $DISTRIBUTION_DOMAIN"
+log "CloudFront Distribution
