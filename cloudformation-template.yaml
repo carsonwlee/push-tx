@@ -183,6 +183,7 @@ Resources:
       Source:
         Type: GITHUB
         Location: !Sub "https://github.com/${GitHubRepoOwner}/${GitHubRepoName}.git"
+        GitCloneDepth: 1
       Artifacts:
         Type: S3
         Location: !Ref S3Bucket
