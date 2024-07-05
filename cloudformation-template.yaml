@@ -1,23 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CloudFormation template to deploy static site with Lambda, CloudFront, and CI/CD pipeline
+Description: CloudFormation template to deploy a static site with CloudFront and S3
 
 Parameters:
   DomainName:
     Type: String
     Description: The domain name to use for the CloudFront distribution.
-  GitHubRepoOwner:
-    Type: String
-    Description: The owner of the GitHub repository.
-  GitHubRepoName:
-    Type: String
-    Description: The name of the GitHub repository.
-  GitHubBranch:
-    Type: String
-    Description: The branch to use for the pipeline.
-  GitHubToken:
-    Type: String
-    NoEcho: true
-    Description: The GitHub token with access to the repository.
   CertificateArn:
     Type: String
     Description: The ARN of the ACM certificate.
@@ -26,128 +13,23 @@ Resources:
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "${AWS::StackName}-${AWS::AccountId}-static-site"
+      BucketName: !Sub "${AWS::StackName}-${AWS::AccountId}-static-site-unique-${AWS::Region}"
       WebsiteConfiguration:
         IndexDocument: index.html
         ErrorDocument: error.html
-    DeletionPolicy: Delete
+    DeletionPolicy: Retain  # This will retain the bucket when the stack is deleted
 
-  S3BucketPolicy:
+  BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
       Bucket: !Ref S3Bucket
       PolicyDocument:
-        Version: '2012-10-17'
         Statement:
           - Sid: PublicReadGetObject
             Effect: Allow
-            Principal: '*'
+            Principal: "*"
             Action: s3:GetObject
             Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-          - Sid: AllowPutObject
-            Effect: Allow
-            Principal:
-              AWS: !GetAtt CodeBuildServiceRole.Arn
-            Action: s3:PutObject
-            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-          - Sid: AllowPutObjectLambda
-            Effect: Allow
-            Principal:
-              AWS: !GetAtt LambdaExecutionRole.Arn
-            Action: s3:PutObject
-            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-
-  CloudFormationExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: cloudformation.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AdministratorAccess
-
-  LambdaExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: LambdaS3Access
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:PutObject
-                Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-
-  CodePipelineServiceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: codepipeline.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: CodePipelineS3Access
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:PutObject
-                Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-
-  CodeBuildServiceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: codebuild.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: CodeBuildS3Access
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:PutObject
-                Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
-
-  LambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-lambda-function"
-      Handler: index.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Runtime: nodejs14.x
-      Code:
-        S3Bucket: !Ref S3Bucket
-        S3Key: lambda-function.zip
-
-  LambdaEdgePermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt LambdaFunction.Arn
-      Action: lambda:InvokeFunction
-      Principal: edgelambda.amazonaws.com
-      SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/*"
 
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
@@ -155,7 +37,7 @@ Resources:
       DistributionConfig:
         Origins:
           - Id: S3Origin
-            DomainName: !GetAtt S3Bucket.WebsiteURL
+            DomainName: !GetAtt S3Bucket.RegionalDomainName
             S3OriginConfig:
               OriginAccessIdentity: ""
         Enabled: true
@@ -173,76 +55,17 @@ Resources:
             QueryString: false
             Cookies:
               Forward: none
-          LambdaFunctionAssociations:
-            - EventType: origin-request
-              LambdaFunctionARN: !GetAtt LambdaFunction.Arn
         ViewerCertificate:
           AcmCertificateArn: !Ref CertificateArn
           SslSupportMethod: sni-only
         Aliases:
           - !Ref DomainName
 
-  CodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Name: !Sub "${AWS::StackName}-build-project"
-      Source:
-        Type: GITHUB
-        Location: !Sub "https://github.com/${GitHubRepoOwner}/${GitHubRepoName}.git"
-        ReportBuildStatus: true
-        GitCloneDepth: 1
-      Artifacts:
-        Type: S3
-        Location: !Ref S3Bucket
-      Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
-        Type: LINUX_CONTAINER
-        EnvironmentVariables:
-          - Name: S3_BUCKET
-            Value: !Ref S3Bucket
-      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
-
-  CodePipeline:
-    Type: AWS::CodePipeline::Pipeline
-    Properties:
-      Name: !Sub "${AWS::StackName}-pipeline"
-      RoleArn: !GetAtt CodePipelineServiceRole.Arn
-      Stages:
-        - Name: Source
-          Actions:
-            - Name: Source
-              ActionTypeId:
-                Category: Source
-                Owner: ThirdParty
-                Provider: GitHub
-                Version: 1
-              OutputArtifacts:
-                - Name: SourceOutput
-              Configuration:
-                Owner: !Ref GitHubRepoOwner
-                Repo: !Ref GitHubRepoName
-                Branch: !Ref GitHubBranch
-                OAuthToken: !Ref GitHubToken
-        - Name: Build
-          Actions:
-            - Name: Build
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: 1
-              InputArtifacts:
-                - Name: SourceOutput
-              OutputArtifacts:
-                - Name: BuildOutput
-              Configuration:
-                ProjectName: !Ref CodeBuildProject
-
 Outputs:
   S3BucketName:
     Description: "Name of the S3 bucket"
     Value: !Ref S3Bucket
+
   CloudFrontDistributionDomainName:
     Description: "Domain name of the CloudFront distribution"
     Value: !GetAtt CloudFrontDistribution.DomainName

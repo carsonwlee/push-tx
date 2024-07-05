@@ -1,13 +1,5 @@
 #!/bin/bash
 
-# Enable debug logging
-export AWS_DEFAULT_REGION=us-east-1  # Replace with your AWS region
-export AWS_PROFILE=default  # Replace with your AWS profile if necessary
-export AWS_PAGER=""
-
-aws configure set default.s3.signature_version s3v4
-aws configure set default.output json
-
 # Load environment variables from .env file
 export $(grep -v '^#' .env | xargs)
 
@@ -105,6 +97,11 @@ fi
 # Get AWS region
 AWS_REGION=$(aws configure get region)
 
+# Create S3 bucket
+log "Creating S3 bucket..."
+BUCKET_NAME="push-tx-static-site-$(openssl rand -hex 4)"
+aws s3 mb s3://$BUCKET_NAME --region $AWS_REGION
+
 # Check if CloudFormation stack exists
 STACK_STATUS=$(aws cloudformation describe-stacks --stack-name push-tx --query "Stacks[0].StackStatus" --output text 2>&1)
 
@@ -114,12 +111,8 @@ if [[ "$STACK_STATUS" == *"does not exist"* ]]; then
   aws cloudformation create-stack --stack-name push-tx \
     --template-body file://cloudformation-template.yaml \
     --parameters ParameterKey=DomainName,ParameterValue=$DOMAIN_NAME \
-                 ParameterKey=GitHubRepoOwner,ParameterValue=$GITHUB_REPO_OWNER \
-                 ParameterKey=GitHubRepoName,ParameterValue=$GITHUB_REPO_NAME \
-                 ParameterKey=GitHubBranch,ParameterValue=$GITHUB_BRANCH \
-                 ParameterKey=GitHubToken,ParameterValue=$GITHUB_TOKEN \
                  ParameterKey=CertificateArn,ParameterValue=$CERTIFICATE_ARN \
-    --capabilities CAPABILITY_NAMED_IAM
+    --capabilities CAPABILITY_IAM
 
   if [[ $? -ne 0 ]]; then
     error "Failed to create CloudFormation stack."
@@ -134,12 +127,8 @@ else
   aws cloudformation update-stack --stack-name push-tx \
     --template-body file://cloudformation-template.yaml \
     --parameters ParameterKey=DomainName,ParameterValue=$DOMAIN_NAME \
-                 ParameterKey=GitHubRepoOwner,ParameterValue=$GITHUB_REPO_OWNER \
-                 ParameterKey=GitHubRepoName,ParameterValue=$GITHUB_REPO_NAME \
-                 ParameterKey=GitHubBranch,ParameterValue=$GITHUB_BRANCH \
-                 ParameterKey=GitHubToken,ParameterValue=$GITHUB_TOKEN \
                  ParameterKey=CertificateArn,ParameterValue=$CERTIFICATE_ARN \
-    --capabilities CAPABILITY_NAMED_IAM
+    --capabilities CAPABILITY_IAM
 
   if [[ $? -ne 0 ]]; then
     error "Failed to update CloudFormation stack."
